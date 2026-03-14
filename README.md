@@ -1,5 +1,13 @@
-# pf
+# Polyfolds
 Standalone Polyfolds sister app for AIX.
+
+## Commit
+Split Polyfolds into a standalone pf sister service
+- reroute /polyfolds/* to the dedicated polyfolds App Engine service
+- deploy the pf service from the AIX cloud deploy script
+- update the local Polyfolds bridge default from geometry/polyfolds to pf/polyfolds
+- refresh AIX docs and preplan references for the new pf layout
+- update the hub summary text to reflect Polyfolds as a standalone lab
 
 ## Layout
 - `pf_web/` user-facing Flask app
