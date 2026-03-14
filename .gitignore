@@ -1,0 +1,12 @@
+__pycache__/
+.pytest_cache/
+.venv/
+venv/
+*.pyc
+*.pyo
+*.db
+*.sqlite*
+/polyfolds/dataset_dodeca
+/polyfolds/dataset_hexa
+/polyfolds/dataset_icosa
+/polyfolds/dataset_octa

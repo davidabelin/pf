@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Polyfolds | Home{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">Standalone Sister App + Trained Model Surface</p>
+  <h1>Polyfolds</h1>
+  <p class="lede">
+    This app will expose a trained neural-network workflow for classifying and repairing polyhedral nets.
+    Data generation and model training stay offline in the sibling <code>polyfolds</code> development folder.
+  </p>
+</section>
+
+<section class="grid">
+  <article class="card">
+    <h2>Planned User Flow</h2>
+    <p>Input a net, classify it as valid or invalid, and return either the same structure or a corrected one.</p>
+  </article>
+  <article class="card">
+    <h2>Offline Dev Workspace</h2>
+    <p><code>{{ dev_repo }}</code></p>
+    <p>Use this folder for one-time data generation, manifest building, training, and evaluation.</p>
+  </article>
+  <article class="card">
+    <h2>Cloud Storage Target</h2>
+    <p>{% if bucket_name %}<code>{{ bucket_name }}</code>{% else %}Bucket not configured yet.{% endif %}</p>
+    <p>Once the initial repo is committed, this app can be wired to a dedicated bucket and deployed as its own service.</p>
+  </article>
+</section>
+{% endblock %}

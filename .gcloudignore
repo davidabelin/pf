@@ -1,0 +1,16 @@
+.gcloudignore
+.git
+.gitignore
+.venv/
+venv/
+.pytest_cache/
+__pycache__/
+tests/
+docs/
+data/
+*.db
+*.sqlite*
+*.ipynb
+polyfolds/dataset_*/
+polyfolds/__pycache__/
+polyfolds/polyfolds_ml/__pycache__/

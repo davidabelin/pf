@@ -1,0 +1,100 @@
+:root {
+  --ink: #1f1f24;
+  --paper: #fbf8f2;
+  --panel: #fffdf8;
+  --accent: #0f7b6d;
+  --accent-2: #c0822b;
+  --line: #ddd6ca;
+  --muted: #615f67;
+  --shadow: 0 10px 28px rgba(22, 18, 12, 0.08);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 18% 10%, rgba(248, 219, 169, 0.9), transparent 32%),
+    radial-gradient(circle at 82% 20%, rgba(205, 236, 230, 0.9), transparent 30%),
+    linear-gradient(160deg, var(--paper), #f2ece2);
+}
+.bg-orb {
+  position: fixed;
+  border-radius: 999px;
+  filter: blur(58px);
+  opacity: 0.24;
+  z-index: -1;
+}
+.bg-orb-a { width: 240px; height: 240px; background: #d39f4a; top: -80px; right: 8vw; }
+.bg-orb-b { width: 260px; height: 260px; background: #2aa087; bottom: -110px; left: 6vw; }
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.95rem clamp(0.85rem, 3vw, 2.4rem);
+}
+.brand {
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.site-nav { display: flex; flex-wrap: wrap; gap: 0.55rem; }
+.site-nav a {
+  color: var(--ink);
+  text-decoration: none;
+  padding: 0.28rem 0.56rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+.site-nav a:hover { background: rgba(15, 123, 109, 0.1); }
+.page {
+  width: min(940px, 92vw);
+  margin: 0 auto 2rem;
+  display: grid;
+  gap: 0.8rem;
+}
+.hero,
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+.hero { padding: clamp(1rem, 2.5vw, 1.8rem); }
+.card { padding: 0.9rem; }
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  font-size: 0.7rem;
+}
+h1,
+h2 {
+  margin: 0.2rem 0 0.7rem;
+  font-family: "Baskervville", Georgia, serif;
+  font-weight: 400;
+}
+h1 { font-size: clamp(1.4rem, 4vw, 2.25rem); }
+h2 { font-size: clamp(1rem, 2.2vw, 1.2rem); }
+.lede,
+p { color: var(--muted); line-height: 1.45; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: rgba(15, 123, 109, 0.08);
+  padding: 0.08rem 0.3rem;
+  border-radius: 8px;
+}
+@media (max-width: 700px) {
+  .site-header { flex-direction: column; align-items: flex-start; }
+}

@@ -1,0 +1,13 @@
+runtime: python314
+service: polyfolds
+entrypoint: gunicorn --worker-tmp-dir /tmp -b :$PORT run:app
+
+env_variables:
+  APP_BASE_PATH: /polyfolds
+  AIX_HUB_URL: https://aix-labs.uw.r.appspot.com/
+  PF_DEV_REPO: /srv/polyfolds
+  PF_MODELS_DIR: gs://aix-labs-polyfolds/models
+  PF_DATA_DIR: gs://aix-labs-polyfolds/data
+  PF_BUCKET: gs://aix-labs-polyfolds
+
+service_account: aix-admin@aix-labs.iam.gserviceaccount.com
