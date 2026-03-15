@@ -96,7 +96,14 @@ def _edges_from_faces(faces: list[VectorFace]) -> list[VectorEdge]:
 
 
 def _repair_target_from_row(row: dict[str, Any], *, source_dir: Path) -> RepairTarget | None:
-    """Build a repair-target record from one legacy label row when available."""
+    """Build a repair-target record from one legacy label row when available.
+
+    Notes
+    -----
+    Legacy datasets rarely contain full repair payloads, so this function keeps
+    the contract permissive and emits a partial target when only completion-face
+    hints are available.
+    """
 
     completion_cells = row.get("completion_cells") or []
     completion_faces = row.get("completion_faces") or []
@@ -115,7 +122,13 @@ def _repair_target_from_row(row: dict[str, Any], *, source_dir: Path) -> RepairT
 
 
 def _sample_from_legacy_row(row: dict[str, Any], *, source_dir: Path) -> PolyfoldSample:
-    """Convert one legacy label row into the normalized sample schema."""
+    """Convert one legacy label row into the normalized sample schema.
+
+    Role
+    ----
+    This is the main compatibility shim from historical Polyfolds outputs into
+    the newer raster-plus-vector sample contract.
+    """
 
     raster_path = source_dir / str(row["file"])
     vector_faces = []
@@ -169,6 +182,11 @@ def build_manifest(dataset_roots: list[Path], *, output_path: Path | None = None
     dict[str, Any]
         JSON-ready payload containing a manifest header and normalized sample
         rows.
+
+    Role
+    ----
+    This is the canonical offline handoff from historical dataset folders to
+    the normalized Polyfolds ML workflow.
     """
 
     samples: list[PolyfoldSample] = []
@@ -213,7 +231,12 @@ def load_manifest_rows(manifest_path: Path) -> dict[str, Any]:
 
 
 def summarize_manifest(manifest_payload: dict[str, Any]) -> dict[str, Any]:
-    """Return a compact class/solid summary for one manifest payload."""
+    """Return a compact class/solid summary for one manifest payload.
+
+    Used By
+    -------
+    CLI diagnostics and quick sanity checks before longer training runs.
+    """
 
     rows = manifest_payload.get("samples", [])
     classes = Counter(str(row.get("class_label", "unknown")) for row in rows)

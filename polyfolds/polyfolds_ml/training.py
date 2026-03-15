@@ -40,7 +40,13 @@ else:
 
 @dataclass(slots=True)
 class ClassifierTrainConfig:
-    """Configuration for one baseline Polyfolds classifier training run."""
+    """Configuration for one baseline Polyfolds classifier training run.
+
+    Role
+    ----
+    This is the current CLI-facing configuration envelope for the first offline
+    Polyfolds classifier milestone.
+    """
 
     manifest_path: str
     artifact_path: str
@@ -53,7 +59,13 @@ class ClassifierTrainConfig:
 
 
 def _read_raster(path: str, image_size: int) -> np.ndarray:
-    """Load and downsample one raster input into a flat feature vector."""
+    """Load and downsample one raster input into a flat feature vector.
+
+    Notes
+    -----
+    This keeps the current baseline intentionally simple and reproducible while
+    the project finalizes the richer CNN/vector architecture plan.
+    """
 
     image = mpimg.imread(path)
     if image.ndim == 3:
@@ -69,7 +81,13 @@ def _read_raster(path: str, image_size: int) -> np.ndarray:
 
 
 def _load_xy(manifest_path: str, image_size: int) -> tuple[np.ndarray, np.ndarray, list[str]]:
-    """Load feature and label matrices from a normalized manifest JSON file."""
+    """Load feature and label matrices from a normalized manifest JSON file.
+
+    Role
+    ----
+    This is the bridge from the normalized manifest contract into the baseline
+    classifier's concrete `X`, `y`, and label vocabulary arrays.
+    """
 
     payload = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
     rows = payload.get("samples", [])
@@ -88,6 +106,10 @@ def train_classifier_baseline(config: ClassifierTrainConfig) -> dict[str, Any]:
     Establish a reproducible offline baseline for the first milestone
     (categorical valid/invalid/incomplete prediction) before introducing more
     complex repair-oriented models.
+
+    Side Effects
+    ------------
+    Writes a pickle artifact containing the fitted model and its label mapping.
     """
 
     if LogisticRegression is None or MLPClassifier is None or train_test_split is None:
