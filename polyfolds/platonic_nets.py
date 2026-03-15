@@ -1,3 +1,19 @@
+"""Geometric net generation primitives for the offline Polyfolds workflow.
+
+Role
+----
+This module turns exact platonic-solid geometry into unfolded 2D face layouts.
+It is the geometric source of truth for valid Polyfolds samples and for the
+structured net payload later consumed by dataset builders, manifests, and model
+training code.
+
+Cross-Repo Context
+------------------
+`pf_web` is only the future user-facing shell. The actual one-time offline
+workflow lives under `pf/polyfolds`, and this module sits near the bottom of
+that stack: solid geometry in, valid unfolded nets out.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -6,6 +22,8 @@ from typing import Any, Iterable, List, Sequence, Tuple
 
 @dataclass(frozen=True)
 class NetFace2D:
+    """One unfolded solid face with stable vertex ids and 2D coordinates."""
+
     face_index: int
     vertex_ids: Tuple[int, ...]
     xy: Tuple[Tuple[float, float], ...]
@@ -13,6 +31,14 @@ class NetFace2D:
 
 @dataclass(frozen=True)
 class Net2D:
+    """A full unfolded platonic-solid net in canonical structured form.
+
+    Notes
+    -----
+    This is the vector-side representation preserved alongside raster PNGs so
+    later Polyfolds tasks are not trapped in an image-only pipeline.
+    """
+
     solid_name: str
     solid_id: int
     sidelength: float
@@ -22,6 +48,15 @@ class Net2D:
 
 
 def _require_polyhedra() -> tuple[Any, Any, Any]:
+    """Import the geometry dependencies required for net unfolding.
+
+    Role
+    ----
+    The offline Polyfolds workspace depends on `polyhedra` and `numpy`, but the
+    deployed `pf_web` shell does not. Raising a clear error here keeps that
+    dependency boundary explicit.
+    """
+
     try:
         import numpy as np
         from polyhedra import PlatonicSolid
@@ -68,6 +103,8 @@ def _rigid_transform_from_3pts(np: Any, a: Any, b: Any, c: Any, ap: Any, bp: Any
 
 
 def _solid_face_adjacency(solid: Any) -> tuple[list[list[int]], dict[tuple[int, int], tuple[int, int]]]:
+    """Build face adjacency and shared-edge lookup tables for one solid."""
+
     edge_to_faces: dict[tuple[int, int], list[int]] = {}
     edge_to_oriented: dict[tuple[int, int], tuple[int, int]] = {}
 
@@ -111,6 +148,14 @@ def _shared_edge_vertices(solid: Any, f_parent: int, f_child: int) -> tuple[int,
 
 
 def _random_spanning_tree(rng: Any, adjacency: Sequence[Sequence[int]], root: int) -> list[tuple[int, int]]:
+    """Sample one random DFS spanning tree over the solid's face graph.
+
+    Notes
+    -----
+    The spanning tree determines which solid edges are "cut" during unfolding
+    and therefore which valid net topology is produced for a given seed.
+    """
+
     visited = {root}
     stack = [root]
     edges: list[tuple[int, int]] = []
@@ -304,6 +349,22 @@ def _unfold_random_net_internal(
     max_tries: int = 500,
     require_non_overlapping: bool = True,
 ) -> tuple[Net2D, bool]:
+    """Generate one unfolded net and optionally allow collisions.
+
+    Role
+    ----
+    This is the central geometric generator behind both valid-net creation and
+    invalid-sample synthesis. It samples a spanning tree, unfolds each face into
+    the parent plane, checks polygon collisions, and emits a structured `Net2D`
+    payload.
+
+    Returns
+    -------
+    tuple[Net2D, bool]
+        The generated net plus a flag indicating whether any face-overlap
+        collision was detected in the unfolded layout.
+    """
+
     np, PlatonicSolid, rotate_about_line = _require_polyhedra()
 
     solid = PlatonicSolid("solid", int(solid_id), float(sidelength))
@@ -440,6 +501,8 @@ def unfold_random_net(
     root_face: int | None = None,
     max_tries: int = 500,
 ) -> Net2D:
+    """Generate one valid non-overlapping unfolded net for a platonic solid."""
+
     net, _collision = _unfold_random_net_internal(
         solid_id=solid_id,
         sidelength=sidelength,
@@ -459,6 +522,14 @@ def unfold_random_net_with_collision(
     root_face: int | None = None,
     max_tries: int = 500,
 ) -> tuple[Net2D, bool]:
+    """Generate one unfolded net while preserving the collision outcome flag.
+
+    Used By
+    -------
+    Invalid-sample generation paths that want to reuse naturally colliding
+    unfoldings before applying synthetic corruption steps.
+    """
+
     return _unfold_random_net_internal(
         solid_id=solid_id,
         sidelength=sidelength,
@@ -470,6 +541,8 @@ def unfold_random_net_with_collision(
 
 
 def net_to_json(net: Net2D) -> dict[str, Any]:
+    """Serialize one structured net into the manifest-friendly JSON shape."""
+
     return {
         "solid_id": net.solid_id,
         "sidelength": net.sidelength,
@@ -483,6 +556,8 @@ def net_to_json(net: Net2D) -> dict[str, Any]:
 
 
 def net_bbox(net: Net2D) -> tuple[float, float, float, float]:
+    """Return the 2D bounding box of one unfolded net."""
+
     xs = [p[0] for f in net.faces for p in f.xy]
     ys = [p[1] for f in net.faces for p in f.xy]
     return (min(xs), min(ys), max(xs), max(ys))
@@ -499,6 +574,15 @@ def render_net_png(
     seed: int = 0,
     dedupe_edges: bool = True,
 ) -> None:
+    """Render one structured net as a square PNG preview/training image.
+
+    Role
+    ----
+    The offline Polyfolds workflow preserves vector structure in JSON, but the
+    first classifier milestone still needs raster images. This renderer is the
+    bridge between those two representations.
+    """
+
     import colorsys
     import random
 

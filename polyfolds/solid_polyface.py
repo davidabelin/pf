@@ -1,3 +1,19 @@
+"""CLI workflow helpers for generating Polyfolds nets and labeled datasets.
+
+Role
+----
+This module wraps the lower-level geometric generators in `platonic_nets` with
+task-oriented commands for one-time offline use: sample valid nets, synthesize
+incomplete and invalid variants, render PNG datasets, and emit `labels.jsonl`
+records for later manifest/training stages.
+
+Cross-Repo Context
+------------------
+These commands are intentionally offline and developer-facing. The deployed
+`pf_web` app should eventually serve trained models, not run these expensive
+generation steps on demand.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -14,6 +30,8 @@ from solid_common import DatasetDefaults, NetsDefaults, add_dataset_args, add_ne
 
 @dataclass(frozen=True)
 class SolidSpec:
+    """Static configuration describing one platonic-solid family."""
+
     key: str  # short name: tetra|octa|dodeca|icosa
     polyhedra_id: int  # polyhedra.PlatonicSolid id
     faces_total: int
@@ -24,6 +42,8 @@ class SolidSpec:
 
 
 def build_parser(spec: SolidSpec) -> argparse.ArgumentParser:
+    """Build the CLI parser for one solid-specific tool entrypoint."""
+
     p = argparse.ArgumentParser(description=f"{spec.key} tools")
     sub = p.add_subparsers(dest="cmd")
 
@@ -70,6 +90,15 @@ def _pick_leaf_removals(
     k: int,
     rng: random.Random,
 ) -> set[int]:
+    """Choose removable leaf faces for an incomplete-net variant.
+
+    Notes
+    -----
+    Removing leaves preserves a connected remainder more often than removing
+    arbitrary faces, which makes incomplete samples closer to plausible partial
+    folding work rather than arbitrary graph damage.
+    """
+
     adj = _tree_adj(face_count, tree_edges)
     removed: set[int] = set()
     root = int(root)
@@ -105,6 +134,8 @@ def _faces_by_index(faces: Iterable[NetFace2D]) -> dict[int, NetFace2D]:
 
 
 def _make_incomplete(net: Net2D, *, rng: random.Random, max_missing: int, faces_total: int) -> tuple[Net2D, list[NetFace2D]]:
+    """Create an incomplete variant and return the held-out completion faces."""
+
     max_missing = max(1, int(max_missing))
     choices = [1] * 3 + [2]
     if max_missing >= 3:
@@ -195,6 +226,8 @@ def _reflect_face_about_line(face: NetFace2D, *, a: tuple[float, float], b: tupl
 
 
 def _flip_subtree_about_shared_edge(net: Net2D, *, rng: random.Random) -> Net2D | None:
+    """Reflect one subtree through a hinge edge to induce an invalid overlap."""
+
     parent, children, shared_edge = _tree_parent_children(net)
     root = int(net.root_face)
     by_idx = _faces_by_index(net.faces)
@@ -297,6 +330,8 @@ def _net_has_duplicate_polygons(net: Net2D, *, decimals: int = 3) -> bool:
 
 
 def _invalidate_by_detaching_subtree(net: Net2D, *, rng: random.Random, sidelength: float) -> Net2D:
+    """Create a disconnected invalid net by translating one attached subtree."""
+
     parent, children, shared_edge = _tree_parent_children(net)
     root = int(net.root_face)
     candidates = [int(f.face_index) for f in net.faces if int(f.face_index) != root and int(f.face_index) in parent]
@@ -360,6 +395,8 @@ def _invalidate_by_detaching_subtree(net: Net2D, *, rng: random.Random, sideleng
 
 
 def _nets_worker_task(task: dict[str, Any]) -> tuple[int, str, str | None]:
+    """Generate and optionally render one valid net task for the `nets` command."""
+
     i = int(task["i"])
     seed = int(task["seed"])
     net = unfold_random_net(
@@ -386,6 +423,14 @@ def _nets_worker_task(task: dict[str, Any]) -> tuple[int, str, str | None]:
 
 
 def run_nets(spec: SolidSpec, args: argparse.Namespace) -> None:
+    """Generate a batch of valid nets plus optional PNG previews.
+
+    Role
+    ----
+    This is the lighter-weight developer tool used to inspect raw unfoldings
+    before stepping up to full dataset generation.
+    """
+
     out_dir = str(args.out_dir)
     os.makedirs(out_dir, exist_ok=True)
     jsonl_path = os.path.join(out_dir, "nets.jsonl")
@@ -435,6 +480,14 @@ def run_nets(spec: SolidSpec, args: argparse.Namespace) -> None:
 
 
 def _dataset_worker_task(task: dict[str, Any]) -> tuple[int, str]:
+    """Generate and label one dataset sample for valid/incomplete/invalid data.
+
+    Notes
+    -----
+    Invalid samples are attempted in order of realism: natural overlap,
+    hinge-flip overlap, then disconnected corruption as a fallback.
+    """
+
     order = int(task["order"])
     idx = int(task["idx"])
     cls = str(task["class"])
@@ -560,6 +613,14 @@ def _write_preview(out_dir: str, solid_key: str) -> None:
 
 
 def run_dataset(spec: SolidSpec, args: argparse.Namespace) -> None:
+    """Generate a labeled PNG dataset and `labels.jsonl` for one solid family.
+
+    Role
+    ----
+    This is the main one-time offline dataset command that later feeds the
+    manifest builder and baseline classifier training flow.
+    """
+
     out_dir = str(args.out_dir)
     img_dir = os.path.join(out_dir, "images")
     os.makedirs(img_dir, exist_ok=True)
@@ -632,6 +693,14 @@ def run_dataset(spec: SolidSpec, args: argparse.Namespace) -> None:
 
 
 def main(spec: SolidSpec, argv: List[str] | None = None) -> None:
+    """Dispatch one solid-specific CLI command.
+
+    Used By
+    -------
+    The `solid_*.py` entrypoints that bind a concrete `SolidSpec` and expose
+    it as a runnable developer tool.
+    """
+
     args = build_parser(spec).parse_args(argv)
 
     if args.cmd == "nets":
