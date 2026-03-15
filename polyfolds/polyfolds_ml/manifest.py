@@ -1,4 +1,16 @@
-"""Manifest builder for legacy Polyfolds datasets."""
+"""Manifest builder for legacy Polyfolds datasets.
+
+Role
+----
+Translate older Polyfolds dataset folders into the normalized raster+vector
+manifest schema used by the next phase of offline model training.
+
+Cross-Repo Context
+------------------
+This is the bridge from the historical data-generation scripts into the newer
+``polyfolds_ml`` workflow. The resulting manifest is meant to be consumed by
+offline training now and by ``pf_web`` inference workflows later.
+"""
 
 from __future__ import annotations
 
@@ -12,10 +24,14 @@ from polyfolds_ml.schema import DatasetManifest, PolyfoldSample, RasterAsset, Re
 
 
 def _round_point(point: tuple[float, float], decimals: int = 6) -> tuple[float, float]:
+    """Round one 2D point into a stable manifest-friendly coordinate key."""
+
     return (round(float(point[0]), decimals), round(float(point[1]), decimals))
 
 
 def _faces_from_cells(cells: list[list[int]], *, present: bool = True, offset: int = 0) -> list[VectorFace]:
+    """Convert axis-aligned cell coordinates into square ``VectorFace`` records."""
+
     faces: list[VectorFace] = []
     for idx, cell in enumerate(cells):
         x = float(cell[0])
@@ -31,6 +47,8 @@ def _faces_from_cells(cells: list[list[int]], *, present: bool = True, offset: i
 
 
 def _faces_from_polygons(net_payload: dict[str, Any]) -> list[VectorFace]:
+    """Convert legacy polygon payloads into normalized ``VectorFace`` records."""
+
     out: list[VectorFace] = []
     for item in net_payload.get("faces", []) or []:
         xy = tuple(_round_point((pair[0], pair[1])) for pair in item.get("xy", []))
@@ -47,6 +65,14 @@ def _faces_from_polygons(net_payload: dict[str, Any]) -> list[VectorFace]:
 
 
 def _edges_from_faces(faces: list[VectorFace]) -> list[VectorEdge]:
+    """Derive explicit edge records from a face list.
+
+    Role
+    ----
+    Make adjacency and shared-boundary structure first-class in the manifest so
+    later repair models do not have to rediscover it from raster images alone.
+    """
+
     edge_map: dict[tuple[tuple[float, float], tuple[float, float]], dict[str, Any]] = {}
     for face in faces:
         polygon = list(face.polygon)
@@ -70,6 +96,8 @@ def _edges_from_faces(faces: list[VectorFace]) -> list[VectorEdge]:
 
 
 def _repair_target_from_row(row: dict[str, Any], *, source_dir: Path) -> RepairTarget | None:
+    """Build a repair-target record from one legacy label row when available."""
+
     completion_cells = row.get("completion_cells") or []
     completion_faces = row.get("completion_faces") or []
     if not completion_cells and not completion_faces:
@@ -87,6 +115,8 @@ def _repair_target_from_row(row: dict[str, Any], *, source_dir: Path) -> RepairT
 
 
 def _sample_from_legacy_row(row: dict[str, Any], *, source_dir: Path) -> PolyfoldSample:
+    """Convert one legacy label row into the normalized sample schema."""
+
     raster_path = source_dir / str(row["file"])
     vector_faces = []
     if row.get("cells"):
@@ -119,6 +149,8 @@ def _sample_from_legacy_row(row: dict[str, Any], *, source_dir: Path) -> Polyfol
 
 
 def _iter_legacy_label_rows(dataset_dir: Path):
+    """Yield parsed rows from one legacy ``labels.jsonl`` file if present."""
+
     labels_path = dataset_dir / "labels.jsonl"
     if not labels_path.exists():
         return
@@ -130,6 +162,15 @@ def _iter_legacy_label_rows(dataset_dir: Path):
 
 
 def build_manifest(dataset_roots: list[Path], *, output_path: Path | None = None, dataset_name: str = "polyfolds_v1") -> dict[str, Any]:
+    """Build a normalized manifest payload from one or more legacy datasets.
+
+    Returns
+    -------
+    dict[str, Any]
+        JSON-ready payload containing a manifest header and normalized sample
+        rows.
+    """
+
     samples: list[PolyfoldSample] = []
     class_counter: Counter[str] = Counter()
     solid_counter: Counter[str] = Counter()
@@ -166,10 +207,14 @@ def build_manifest(dataset_roots: list[Path], *, output_path: Path | None = None
 
 
 def load_manifest_rows(manifest_path: Path) -> dict[str, Any]:
+    """Load one previously written manifest JSON payload from disk."""
+
     return json.loads(Path(manifest_path).read_text(encoding="utf-8"))
 
 
 def summarize_manifest(manifest_payload: dict[str, Any]) -> dict[str, Any]:
+    """Return a compact class/solid summary for one manifest payload."""
+
     rows = manifest_payload.get("samples", [])
     classes = Counter(str(row.get("class_label", "unknown")) for row in rows)
     solids = Counter(str(row.get("solid", "unknown")) for row in rows)

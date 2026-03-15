@@ -1,4 +1,10 @@
-"""Build a unified Polyfolds manifest from one or more legacy dataset folders."""
+"""Build a unified Polyfolds manifest from one or more legacy dataset folders.
+
+Role
+----
+CLI entrypoint for the first normalization step in the offline Polyfolds
+workflow.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +16,8 @@ from polyfolds_ml.manifest import build_manifest, summarize_manifest
 
 
 def main() -> int:
+    """Parse CLI arguments, build the manifest, print a compact summary."""
+
     parser = argparse.ArgumentParser(description="Build a unified manifest from legacy Polyfolds datasets.")
     parser.add_argument(
         "--dataset",

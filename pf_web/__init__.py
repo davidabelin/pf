@@ -1,3 +1,18 @@
+"""Flask application factory for the standalone Polyfolds sister app.
+
+Role
+----
+Assemble the lightweight deployed Polyfolds shell that will eventually serve
+trained-model interactions while keeping the heavy one-time geometry, dataset,
+and training work in the sibling ``polyfolds/`` workspace.
+
+Cross-Repo Context
+------------------
+``pf_web`` is the user-facing service app. The adjacent ``polyfolds`` package
+is the offline development workspace used for dataset generation, manifests,
+and training. AIX routes ``/polyfolds`` to this standalone service in cloud.
+"""
+
 from __future__ import annotations
 
 import os
@@ -8,11 +23,15 @@ from flask import Flask
 
 
 def _normalize_base_url(value: str) -> str:
+    """Normalize the configured AIX hub base URL for footer/navigation links."""
+
     raw = str(value or '').strip()
     return raw or '/'
 
 
 def _aix_page_url(base_url: str, path: str) -> str:
+    """Build one AIX-owned page URL from the configured hub base URL."""
+
     base = _normalize_base_url(base_url)
     if base == '/':
         return path
@@ -20,6 +39,14 @@ def _aix_page_url(base_url: str, path: str) -> str:
 
 
 def create_app(config: dict | None = None) -> Flask:
+    """Create the standalone Polyfolds Flask application.
+
+    Role
+    ----
+    Configure the deployed PF shell and expose the AIX footer/navigation URLs
+    needed to keep the sister app visually connected to the umbrella project.
+    """
+
     app = Flask(__name__, template_folder='templates', static_folder='static')
     root = Path(__file__).resolve().parents[1]
     app.config.from_mapping(
@@ -40,6 +67,8 @@ def create_app(config: dict | None = None) -> Flask:
 
     @app.context_processor
     def inject_template_globals() -> dict:
+        """Expose AIX navigation URLs and PF display metadata to templates."""
+
         hub_url = _normalize_base_url(app.config.get('AIX_HUB_URL', '/'))
         return {
             'aix_hub_url': hub_url,

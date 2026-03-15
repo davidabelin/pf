@@ -1,4 +1,9 @@
-"""Train a baseline Polyfolds classifier from a unified manifest."""
+"""Train a baseline Polyfolds classifier from a unified manifest.
+
+Role
+----
+CLI entrypoint for the first reproducible Polyfolds classifier training pass.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +15,8 @@ from polyfolds_ml.training import ClassifierTrainConfig, train_classifier_baseli
 
 
 def main() -> int:
+    """Parse CLI arguments, train the baseline classifier, and print metrics."""
+
     parser = argparse.ArgumentParser(description="Train a baseline Polyfolds classifier.")
     parser.add_argument("--manifest", required=True, help="Input manifest JSON path.")
     parser.add_argument("--artifact", required=True, help="Output pickle artifact path.")

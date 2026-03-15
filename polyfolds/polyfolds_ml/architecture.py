@@ -1,4 +1,12 @@
-"""Architecture descriptors for Polyfolds classification and repair models."""
+"""Architecture descriptors for Polyfolds classification and repair models.
+
+Role
+----
+Define the intended model-design vocabulary for Polyfolds before the heavier
+training implementation is finalized. These specs document the future shape of
+the classifier and repair models without coupling the current codebase to one
+runtime framework yet.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +15,8 @@ from dataclasses import asdict, dataclass
 
 @dataclass(frozen=True, slots=True)
 class ConvStage:
+    """One convolutional encoder stage in a planned Polyfolds raster stack."""
+
     channels: int
     kernel_size: int
     stride: int = 1
@@ -15,6 +25,8 @@ class ConvStage:
 
 @dataclass(frozen=True, slots=True)
 class EncoderSpec:
+    """High-level description of one raster encoder stack."""
+
     input_size: int
     stages: tuple[ConvStage, ...]
     projection_dim: int
@@ -22,6 +34,8 @@ class EncoderSpec:
 
 @dataclass(frozen=True, slots=True)
 class HeadSpec:
+    """High-level description of one prediction head on top of the encoder."""
+
     hidden_dims: tuple[int, ...]
     output_dim: int
     dropout: float = 0.0
@@ -29,6 +43,8 @@ class HeadSpec:
 
 @dataclass(frozen=True, slots=True)
 class PolyfoldsModelSpec:
+    """Complete planned model specification for one Polyfolds objective."""
+
     name: str
     objective: str
     raster_encoder: EncoderSpec
@@ -38,10 +54,14 @@ class PolyfoldsModelSpec:
     notes: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
+        """Serialize the declarative model spec into a JSON-ready dictionary."""
+
         return asdict(self)
 
 
 def default_classifier_spec() -> PolyfoldsModelSpec:
+    """Return the default planned classifier architecture spec."""
+
     return PolyfoldsModelSpec(
         name="polyfolds_cnn_classifier_v0",
         objective="classify valid vs invalid vs incomplete",
@@ -65,6 +85,8 @@ def default_classifier_spec() -> PolyfoldsModelSpec:
 
 
 def default_repair_spec() -> PolyfoldsModelSpec:
+    """Return the default planned repair-model architecture spec."""
+
     return PolyfoldsModelSpec(
         name="polyfolds_repair_hybrid_v0",
         objective="predict least-change repair targets in vector/raster space",

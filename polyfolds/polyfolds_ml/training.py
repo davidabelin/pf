@@ -1,4 +1,15 @@
-"""Baseline classifier training for Polyfolds manifests."""
+"""Baseline classifier training for Polyfolds manifests.
+
+Role
+----
+Provide the first reproducible classifier baseline over normalized Polyfolds
+manifests before the project graduates to richer CNN and repair architectures.
+
+Cross-Repo Context
+------------------
+This module consumes the manifest built by ``polyfolds_ml.manifest`` and
+produces artifacts that a future ``pf_web`` inference surface can load.
+"""
 
 from __future__ import annotations
 
@@ -29,6 +40,8 @@ else:
 
 @dataclass(slots=True)
 class ClassifierTrainConfig:
+    """Configuration for one baseline Polyfolds classifier training run."""
+
     manifest_path: str
     artifact_path: str
     model_type: str = "logistic"
@@ -40,6 +53,8 @@ class ClassifierTrainConfig:
 
 
 def _read_raster(path: str, image_size: int) -> np.ndarray:
+    """Load and downsample one raster input into a flat feature vector."""
+
     image = mpimg.imread(path)
     if image.ndim == 3:
         image = image[..., :3].mean(axis=2)
@@ -54,6 +69,8 @@ def _read_raster(path: str, image_size: int) -> np.ndarray:
 
 
 def _load_xy(manifest_path: str, image_size: int) -> tuple[np.ndarray, np.ndarray, list[str]]:
+    """Load feature and label matrices from a normalized manifest JSON file."""
+
     payload = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
     rows = payload.get("samples", [])
     labels = sorted({str(row["class_label"]) for row in rows})
@@ -64,6 +81,15 @@ def _load_xy(manifest_path: str, image_size: int) -> tuple[np.ndarray, np.ndarra
 
 
 def train_classifier_baseline(config: ClassifierTrainConfig) -> dict[str, Any]:
+    """Train the current baseline Polyfolds classifier and write its artifact.
+
+    Role
+    ----
+    Establish a reproducible offline baseline for the first milestone
+    (categorical valid/invalid/incomplete prediction) before introducing more
+    complex repair-oriented models.
+    """
+
     if LogisticRegression is None or MLPClassifier is None or train_test_split is None:
         raise RuntimeError(
             "scikit-learn is required for polyfolds baseline training"
