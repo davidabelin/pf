@@ -71,3 +71,6 @@
 - Repair stays separate from the classifier
 - The current repair contract points to target SVG plus completion-face metadata
 - Adversarial training is deferred until supervised vector repair works
+
+## References
+- See `docs/polyfolds_references.md` for geometry and unfolding references that may inform later repair-model targets and validity constraints.

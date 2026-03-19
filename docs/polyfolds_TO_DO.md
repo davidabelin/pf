@@ -5,7 +5,10 @@
 - [x] Runtime requirements split from offline geometry and ML requirements
 - [x] Legacy raster assets and older generators moved under `polyfolds/legacy/`
 - [x] Top-level docs describe the two-lane workspace accurately
+- [x] Start a project references tracker for unfolding and net-enumeration sources
 - [ ] Add a short changelog or release note flow for dataset/model revisions
+- [ ] Choose a local folder convention for downloaded papers or PDFs
+- [ ] Locate stable URLs and, where allowed, download PDFs for the tracked references
 
 ## Data Generation
 - [x] Canonical dataset builder CLI

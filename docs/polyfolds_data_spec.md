@@ -52,3 +52,6 @@
   - `https://polyhedronmodels.org/ks/svgfiles/`
   - `https://github.com/roni-polymod/models`
 - Canonical data therefore remains locally generated.
+
+## References
+- See `docs/polyfolds_references.md` for unfolding and net-enumeration references that may inform later validation and enumeration refinements.
