@@ -1,4 +1,4 @@
-# Polyfolds Direction
+# Polyfolds Direction Tonight/Tomorrow
 
 ## Tonight's Cleanup
 - Keep `pf_web` minimal and healthy.
@@ -24,5 +24,6 @@
 - Final semantic color mapping is intentionally deferred so geometry and interfaces can stabilize first.
 
 ## Legacy Status
-- `polyfolds/dataset_*` remains legacy and non-canonical.
+- All legacy code and data moved to `polyfolds/legacy`
+- `polyfolds/legacy/dataset_*` remains legacy and non-canonical.
 - The sklearn baseline remains legacy scaffolding and no longer defines the main training path.
