@@ -1,28 +1,30 @@
 # Polyfolds
-Standalone Polyfolds sister app for AIX.
-
-## Commit
-Split Polyfolds into a standalone pf sister service
-- reroute /polyfolds/* to the dedicated polyfolds App Engine service
-- deploy the pf service from the AIX cloud deploy script
-- update the local Polyfolds bridge default from geometry/polyfolds to pf/polyfolds
-- refresh AIX docs and preplan references for the new pf layout
-- update the hub summary text to reflect Polyfolds as a standalone lab
+Standalone Polyfolds sister app plus the offline geometry and ML lab that feeds it.
 
 ## Layout
-- `pf_web/` user-facing Flask app
-- `polyfolds/` offline data generation and training workspace
-- `tests/` app smoke tests
-- `app.aix.yaml` App Engine service manifest
-- `pf_cloud_setup.bat` first-time bucket and IAM setup
-- `pf_cloud_deploy.bat` App Engine deploy helper
-- `pf_cloud_status.bat` service and bucket status helper
+- `pf_web/` is the deployed Flask shell.
+- `polyfolds/` is the offline workspace for geometry, canonical dataset generation, manifests, and training.
+- `data/` is the local output area for generated canonical datasets.
+- `models/` is the local output area for trained artifacts.
+- `tests/` holds repo smoke tests.
 
-## Intended split
-The deployed app serves trained-model interactions.
-The sibling `polyfolds/` folder remains the one-time development workspace for dataset generation, manifests, training, and evaluation.
+## Current Direction
+- The runtime app stays lightweight and offline-first for now.
+- The canonical training source is a vector-first dataset generated under `data/canonical_core/`.
+- The existing `polyfolds/dataset_*` PNG corpora are legacy reference assets only.
+- The first model track is one shared `solid + state` classifier, followed later by vector repair.
 
-## Cloud flow
+## Local Workflow
+1. Install runtime-only deps with `pip install -r requirements.txt` if you only need the Flask shell.
+2. Install the offline workspace with `pip install -r requirements-dev.txt` for geometry, manifests, tests, and training.
+3. Generate canonical vector-first data with `python polyfolds\\build_canonical_polyfolds_dataset.py --out-dir data\\canonical_core`.
+4. Build a unified manifest with `python polyfolds\\build_polyfolds_manifest.py --dataset data\\canonical_core --output data\\canonical_core\\manifest.json --name polyfolds_canonical_core`.
+5. Train the shared classifier with `python polyfolds\\train_polyfolds_classifier.py --manifest data\\canonical_core\\manifest.json --artifact models\\polyfolds_cnn_classifier.pt`.
+
+## Legacy Data
+The checked-out folders under `polyfolds/dataset_*` remain useful for inspection and migration, but they are not the canonical source for new training runs. The manifest builder will still ingest them as legacy datasets when needed.
+
+## Cloud Flow
 1. Run `pf_cloud_setup.bat` once per project.
 2. Run `pf_cloud_deploy.bat` to deploy the `polyfolds` service.
 3. Run `pf_cloud_status.bat` to verify service versions and bucket state.

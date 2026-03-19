@@ -1,4 +1,4 @@
-"""Build a unified Polyfolds manifest from one or more legacy dataset folders.
+"""Build a unified Polyfolds manifest from legacy or canonical dataset folders.
 
 Role
 ----
@@ -18,12 +18,12 @@ from polyfolds_ml.manifest import build_manifest, summarize_manifest
 def main() -> int:
     """Parse CLI arguments, build the manifest, print a compact summary."""
 
-    parser = argparse.ArgumentParser(description="Build a unified manifest from legacy Polyfolds datasets.")
+    parser = argparse.ArgumentParser(description="Build a unified manifest from legacy or canonical Polyfolds datasets.")
     parser.add_argument(
         "--dataset",
         action="append",
         required=True,
-        help="Dataset folder containing labels.jsonl. Repeat for multiple roots.",
+        help="Dataset folder containing labels.jsonl or samples.jsonl. Repeat for multiple roots.",
     )
     parser.add_argument("--output", required=True, help="Output JSON manifest path.")
     parser.add_argument("--name", default="polyfolds_v1", help="Manifest dataset name.")

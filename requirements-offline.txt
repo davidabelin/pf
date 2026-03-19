@@ -1,0 +1,10 @@
+# Offline Polyfolds workspace dependencies.
+# This file is intentionally separate from requirements.txt so the deployed
+# Flask shell stays lean while the geometry and ML workspace remains usable.
+numpy>=2.0
+matplotlib>=3.9
+Pillow>=10.0
+polyhedra
+pytest>=8.0
+scikit-learn>=1.5
+torch>=2.10

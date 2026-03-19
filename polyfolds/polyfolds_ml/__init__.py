@@ -1,4 +1,4 @@
-"""Polyfolds ML scaffolding for dataset manifests and baseline training."""
+"""Polyfolds ML scaffolding for manifests and the shared CNN classifier."""
 
 from polyfolds_ml.architecture import PolyfoldsModelSpec, default_classifier_spec, default_repair_spec
 from polyfolds_ml.manifest import build_manifest, load_manifest_rows, summarize_manifest

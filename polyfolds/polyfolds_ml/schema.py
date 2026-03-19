@@ -1,17 +1,4 @@
-"""Structured schema for Polyfolds raster+vector datasets.
-
-Role
-----
-Define the normalized dataset contract shared by the Polyfolds manifest builder,
-offline training scripts, and the future deployed inference surface.
-
-Cross-Repo Context
-------------------
-This schema is the hand-off point between the offline ``pf/polyfolds``
-workspace and the eventual ``pf_web`` interactive app. It is intentionally
-designed to preserve both raster and vector structure so later repair models do
-not get trapped in raster-only outputs.
-"""
+"""Structured schema for legacy and canonical Polyfolds datasets."""
 
 from __future__ import annotations
 
@@ -19,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 @dataclass(slots=True)
@@ -72,7 +59,14 @@ class PolyfoldSample:
     class_label: str
     solid: str
     source_dataset: str
-    raster_input: RasterAsset
+    raster_input: RasterAsset | None = None
+    state: str | None = None
+    joint_label: str | None = None
+    topology_hash: str | None = None
+    vector_json_path: str | None = None
+    canonical_svg_path: str | None = None
+    render_profile_id: str | None = None
+    source_kind: str = "legacy"
     vector_faces: tuple[VectorFace, ...] = ()
     vector_edges: tuple[VectorEdge, ...] = ()
     repair_target: RepairTarget | None = None
@@ -96,6 +90,9 @@ class DatasetManifest:
     classes: tuple[str, ...]
     solids: tuple[str, ...]
     sample_count: int
+    dataset_kind: str = "legacy"
+    coverage_kind: str = "imported"
+    label_space_version: str = "state_only_v1"
     notes: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:

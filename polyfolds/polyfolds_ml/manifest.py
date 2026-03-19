@@ -1,37 +1,22 @@
-"""Manifest builder for legacy Polyfolds datasets.
-
-Role
-----
-Translate older Polyfolds dataset folders into the normalized raster+vector
-manifest schema used by the next phase of offline model training.
-
-Cross-Repo Context
-------------------
-This is the bridge from the historical data-generation scripts into the newer
-``polyfolds_ml`` workflow. The resulting manifest is meant to be consumed by
-offline training now and by ``pf_web`` inference workflows later.
-"""
+"""Manifest builder for legacy and canonical Polyfolds datasets."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from polyfolds_ml.schema import DatasetManifest, PolyfoldSample, RasterAsset, RepairTarget, VectorEdge, VectorFace
+from polyfolds_ml.schema import DatasetManifest, PolyfoldSample, RasterAsset, RepairTarget, SCHEMA_VERSION, VectorEdge, VectorFace
 
 
 def _round_point(point: tuple[float, float], decimals: int = 6) -> tuple[float, float]:
-    """Round one 2D point into a stable manifest-friendly coordinate key."""
-
     return (round(float(point[0]), decimals), round(float(point[1]), decimals))
 
 
 def _faces_from_cells(cells: list[list[int]], *, present: bool = True, offset: int = 0) -> list[VectorFace]:
-    """Convert axis-aligned cell coordinates into square ``VectorFace`` records."""
-
     faces: list[VectorFace] = []
     for idx, cell in enumerate(cells):
         x = float(cell[0])
@@ -47,8 +32,6 @@ def _faces_from_cells(cells: list[list[int]], *, present: bool = True, offset: i
 
 
 def _faces_from_polygons(net_payload: dict[str, Any]) -> list[VectorFace]:
-    """Convert legacy polygon payloads into normalized ``VectorFace`` records."""
-
     out: list[VectorFace] = []
     for item in net_payload.get("faces", []) or []:
         xy = tuple(_round_point((pair[0], pair[1])) for pair in item.get("xy", []))
@@ -65,14 +48,6 @@ def _faces_from_polygons(net_payload: dict[str, Any]) -> list[VectorFace]:
 
 
 def _edges_from_faces(faces: list[VectorFace]) -> list[VectorEdge]:
-    """Derive explicit edge records from a face list.
-
-    Role
-    ----
-    Make adjacency and shared-boundary structure first-class in the manifest so
-    later repair models do not have to rediscover it from raster images alone.
-    """
-
     edge_map: dict[tuple[tuple[float, float], tuple[float, float]], dict[str, Any]] = {}
     for face in faces:
         polygon = list(face.polygon)
@@ -82,6 +57,7 @@ def _edges_from_faces(faces: list[VectorFace]) -> list[VectorEdge]:
             key = tuple(sorted((_round_point(start), _round_point(end))))
             record = edge_map.setdefault(key, {"start": start, "end": end, "face_indices": []})
             record["face_indices"].append(int(face.face_index))
+
     edges: list[VectorEdge] = []
     for index, (key, record) in enumerate(sorted(edge_map.items())):
         edges.append(
@@ -90,21 +66,22 @@ def _edges_from_faces(faces: list[VectorFace]) -> list[VectorEdge]:
                 start=key[0],
                 end=key[1],
                 face_indices=tuple(sorted(int(value) for value in record["face_indices"])),
+                edge_group="edge_shared" if len(record["face_indices"]) >= 2 else "edge_cut",
             )
         )
     return edges
 
 
-def _repair_target_from_row(row: dict[str, Any], *, source_dir: Path) -> RepairTarget | None:
-    """Build a repair-target record from one legacy label row when available.
+def _topology_hash_from_tree_edges(solid: str, tree_edges: list[Any]) -> str:
+    normalized: list[tuple[int, int]] = []
+    for item in tree_edges or []:
+        if len(item) >= 2:
+            normalized.append(tuple(sorted((int(item[0]), int(item[1])))))
+    payload = json.dumps({"solid": solid, "tree_edges": sorted(normalized)}, separators=(",", ":"), sort_keys=True)
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
 
-    Notes
-    -----
-    Legacy datasets rarely contain full repair payloads, so this function keeps
-    the contract permissive and emits a partial target when only completion-face
-    hints are available.
-    """
 
+def _repair_target_from_row(row: dict[str, Any]) -> RepairTarget | None:
     completion_cells = row.get("completion_cells") or []
     completion_faces = row.get("completion_faces") or []
     if not completion_cells and not completion_faces:
@@ -121,16 +98,11 @@ def _repair_target_from_row(row: dict[str, Any], *, source_dir: Path) -> RepairT
     )
 
 
-def _sample_from_legacy_row(row: dict[str, Any], *, source_dir: Path) -> PolyfoldSample:
-    """Convert one legacy label row into the normalized sample schema.
-
-    Role
-    ----
-    This is the main compatibility shim from historical Polyfolds outputs into
-    the newer raster-plus-vector sample contract.
-    """
-
+def _sample_from_legacy_row(row: dict[str, Any], *, source_dir: Path) -> dict[str, Any]:
     raster_path = source_dir / str(row["file"])
+    solid = str(row.get("solid", source_dir.name.replace("dataset_", "")))
+    class_label = str(row.get("class", "unknown"))
+
     vector_faces = []
     if row.get("cells"):
         vector_faces.extend(_faces_from_cells(row.get("cells") or [], present=True, offset=0))
@@ -142,28 +114,81 @@ def _sample_from_legacy_row(row: dict[str, Any], *, source_dir: Path) -> Polyfol
         vector_faces.extend(_faces_from_cells(completion_cells, present=False, offset=len(vector_faces)))
 
     vector_edges = _edges_from_faces(vector_faces)
-    return PolyfoldSample(
+    topology_hash = None
+    if isinstance(row.get("net"), dict):
+        topology_hash = _topology_hash_from_tree_edges(solid, row["net"].get("tree_edges") or [])
+
+    sample = PolyfoldSample(
         sample_id=raster_path.stem,
         split=str(row.get("split", "train")),
-        class_label=str(row.get("class", "unknown")),
-        solid=str(row.get("solid", source_dir.name.replace("dataset_", ""))),
+        class_label=class_label,
+        solid=solid,
         source_dataset=source_dir.name,
         raster_input=RasterAsset(path=str(raster_path.resolve())),
+        state=class_label,
+        joint_label=f"{solid}:{class_label}",
+        topology_hash=topology_hash,
+        vector_json_path=None,
+        canonical_svg_path=None,
+        render_profile_id=None,
+        source_kind="legacy",
         vector_faces=tuple(vector_faces),
         vector_edges=tuple(vector_edges),
-        repair_target=_repair_target_from_row(row, source_dir=source_dir),
+        repair_target=_repair_target_from_row(row),
         metadata={
             "invalid_reason": row.get("invalid_reason"),
             "faces_total": row.get("faces_total"),
             "faces_present": row.get("faces_present"),
             "seed": row.get("seed"),
+            "generation_mode": "imported",
         },
+        schema_version=SCHEMA_VERSION,
     )
+    return sample.to_dict()
 
 
-def _iter_legacy_label_rows(dataset_dir: Path):
-    """Yield parsed rows from one legacy ``labels.jsonl`` file if present."""
+def _resolve_relative_path(value: str | None, *, source_dir: Path) -> str | None:
+    if not value:
+        return value
+    path = Path(str(value))
+    if path.is_absolute():
+        return str(path.resolve())
+    return str((source_dir / path).resolve())
 
+
+def _normalize_canonical_row(row: dict[str, Any], *, source_dir: Path) -> dict[str, Any]:
+    out = dict(row)
+    out["source_kind"] = str(out.get("source_kind", "canonical"))
+    out["state"] = str(out.get("state") or out.get("class_label") or "unknown")
+    out["class_label"] = str(out.get("class_label") or out["state"])
+    out["solid"] = str(out.get("solid") or source_dir.name)
+    out["joint_label"] = str(out.get("joint_label") or f'{out["solid"]}:{out["state"]}')
+    out["source_dataset"] = str(out.get("source_dataset") or source_dir.name)
+    out["schema_version"] = int(out.get("schema_version", SCHEMA_VERSION))
+    out["vector_json_path"] = _resolve_relative_path(out.get("vector_json_path"), source_dir=source_dir)
+    out["canonical_svg_path"] = _resolve_relative_path(out.get("canonical_svg_path"), source_dir=source_dir)
+
+    raster_input = out.get("raster_input")
+    if isinstance(raster_input, dict):
+        raster_copy = dict(raster_input)
+        raster_copy["path"] = _resolve_relative_path(raster_copy.get("path"), source_dir=source_dir)
+        out["raster_input"] = raster_copy
+
+    repair_target = out.get("repair_target")
+    if isinstance(repair_target, dict):
+        repair_copy = dict(repair_target)
+        repair_copy["target_svg_path"] = _resolve_relative_path(repair_copy.get("target_svg_path"), source_dir=source_dir)
+        target_raster = repair_copy.get("target_raster")
+        if isinstance(target_raster, dict):
+            target_raster_copy = dict(target_raster)
+            target_raster_copy["path"] = _resolve_relative_path(target_raster_copy.get("path"), source_dir=source_dir)
+            repair_copy["target_raster"] = target_raster_copy
+        out["repair_target"] = repair_copy
+
+    return out
+
+
+def _iter_legacy_rows(dataset_dir: Path):
     labels_path = dataset_dir / "labels.jsonl"
     if not labels_path.exists():
         return
@@ -171,78 +196,86 @@ def _iter_legacy_label_rows(dataset_dir: Path):
         for line in handle:
             text = line.strip()
             if text:
-                yield json.loads(text)
+                yield _sample_from_legacy_row(json.loads(text), source_dir=dataset_dir)
+
+
+def _iter_canonical_rows(dataset_dir: Path):
+    samples_path = dataset_dir / "samples.jsonl"
+    if not samples_path.exists():
+        return
+    with samples_path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            text = line.strip()
+            if text:
+                yield _normalize_canonical_row(json.loads(text), source_dir=dataset_dir)
 
 
 def build_manifest(dataset_roots: list[Path], *, output_path: Path | None = None, dataset_name: str = "polyfolds_v1") -> dict[str, Any]:
-    """Build a normalized manifest payload from one or more legacy datasets.
-
-    Returns
-    -------
-    dict[str, Any]
-        JSON-ready payload containing a manifest header and normalized sample
-        rows.
-
-    Role
-    ----
-    This is the canonical offline handoff from historical dataset folders to
-    the normalized Polyfolds ML workflow.
-    """
-
-    samples: list[PolyfoldSample] = []
+    samples: list[dict[str, Any]] = []
     class_counter: Counter[str] = Counter()
     solid_counter: Counter[str] = Counter()
+    dataset_kinds: set[str] = set()
+    coverage_modes: set[str] = set()
+    label_space_versions: set[str] = set()
 
     for root in dataset_roots:
         dataset_dir = Path(root).resolve()
-        for row in _iter_legacy_label_rows(dataset_dir) or []:
-            sample = _sample_from_legacy_row(row, source_dir=dataset_dir)
-            samples.append(sample)
-            class_counter.update([sample.class_label])
-            solid_counter.update([sample.solid])
+        if (dataset_dir / "samples.jsonl").exists():
+            rows = list(_iter_canonical_rows(dataset_dir) or [])
+            dataset_kinds.add("canonical")
+            coverage_modes.update(
+                str((row.get("metadata") or {}).get("generation_mode", "sampled"))
+                for row in rows
+                if isinstance(row, dict)
+            )
+            label_space_versions.add("solid_state_v1")
+        else:
+            rows = list(_iter_legacy_rows(dataset_dir) or [])
+            dataset_kinds.add("legacy")
+            coverage_modes.add("imported")
+            label_space_versions.add("state_only_v1")
+
+        for row in rows:
+            samples.append(row)
+            label = str(row.get("joint_label") or row.get("class_label") or "unknown")
+            class_counter.update([label])
+            solid_counter.update([str(row.get("solid", "unknown"))])
 
     manifest = DatasetManifest(
         dataset_name=dataset_name,
-        schema_version=1,
+        schema_version=SCHEMA_VERSION,
         created_at=datetime.now(UTC).isoformat(),
         source_roots=tuple(str(Path(root).resolve()) for root in dataset_roots),
         classes=tuple(sorted(class_counter.keys())),
         solids=tuple(sorted(solid_counter.keys())),
         sample_count=len(samples),
+        dataset_kind=next(iter(dataset_kinds)) if len(dataset_kinds) == 1 else "mixed",
+        coverage_kind=next(iter(coverage_modes)) if len(coverage_modes) == 1 else "mixed",
+        label_space_version=next(iter(label_space_versions)) if len(label_space_versions) == 1 else "mixed",
         notes=(
-            "Legacy labels were normalized into a raster+vector schema.",
-            "Edge color groups are reserved for future generators and may be null in legacy rows.",
+            "Legacy roots are imported but remain non-canonical.",
+            "Canonical roots provide vector JSON plus SVG assets for the primary workflow.",
         ),
     )
 
-    payload = {
-        "manifest": manifest.to_dict(),
-        "samples": [sample.to_dict() for sample in samples],
-    }
+    payload = {"manifest": manifest.to_dict(), "samples": samples}
     if output_path is not None:
         Path(output_path).write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return payload
 
 
 def load_manifest_rows(manifest_path: Path) -> dict[str, Any]:
-    """Load one previously written manifest JSON payload from disk."""
-
     return json.loads(Path(manifest_path).read_text(encoding="utf-8"))
 
 
 def summarize_manifest(manifest_payload: dict[str, Any]) -> dict[str, Any]:
-    """Return a compact class/solid summary for one manifest payload.
-
-    Used By
-    -------
-    CLI diagnostics and quick sanity checks before longer training runs.
-    """
-
     rows = manifest_payload.get("samples", [])
-    classes = Counter(str(row.get("class_label", "unknown")) for row in rows)
+    classes = Counter(str(row.get("joint_label") or row.get("class_label") or "unknown") for row in rows)
     solids = Counter(str(row.get("solid", "unknown")) for row in rows)
     return {
         "sample_count": int(len(rows)),
         "classes": dict(sorted(classes.items())),
         "solids": dict(sorted(solids.items())),
+        "dataset_kind": str((manifest_payload.get("manifest") or {}).get("dataset_kind", "unknown")),
+        "coverage_kind": str((manifest_payload.get("manifest") or {}).get("coverage_kind", "unknown")),
     }

@@ -1,9 +1,4 @@
-"""Train a baseline Polyfolds classifier from a unified manifest.
-
-Role
-----
-CLI entrypoint for the first reproducible Polyfolds classifier training pass.
-"""
+"""Train the shared Polyfolds CNN classifier from a unified manifest."""
 
 from __future__ import annotations
 
@@ -15,26 +10,33 @@ from polyfolds_ml.training import ClassifierTrainConfig, train_classifier_baseli
 
 
 def main() -> int:
-    """Parse CLI arguments, train the baseline classifier, and print metrics."""
+    """Parse CLI arguments, train the shared classifier, and print metrics."""
 
-    parser = argparse.ArgumentParser(description="Train a baseline Polyfolds classifier.")
+    parser = argparse.ArgumentParser(description="Train the shared Polyfolds CNN classifier.")
     parser.add_argument("--manifest", required=True, help="Input manifest JSON path.")
-    parser.add_argument("--artifact", required=True, help="Output pickle artifact path.")
-    parser.add_argument("--model-type", default="logistic", choices=["logistic", "nn"])
-    parser.add_argument("--image-size", type=int, default=64)
-    parser.add_argument("--hidden-layers", default="128,64", help="Comma-separated hidden layer sizes for model-type=nn")
-    parser.add_argument("--max-iter", type=int, default=300)
+    parser.add_argument("--artifact", required=True, help="Output model artifact path (.pt).")
+    parser.add_argument("--image-size", type=int, default=192)
+    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--epochs", type=int, default=12)
+    parser.add_argument("--learning-rate", type=float, default=3e-4)
+    parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--patience", type=int, default=4)
+    parser.add_argument("--num-workers", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    hidden_layers = tuple(int(token) for token in str(args.hidden_layers).split(",") if token.strip())
     metrics = train_classifier_baseline(
         ClassifierTrainConfig(
             manifest_path=str(Path(args.manifest).resolve()),
             artifact_path=str(Path(args.artifact).resolve()),
-            model_type=str(args.model_type),
             image_size=int(args.image_size),
-            hidden_layer_sizes=hidden_layers or (128, 64),
-            max_iter=int(args.max_iter),
+            batch_size=int(args.batch_size),
+            epochs=int(args.epochs),
+            learning_rate=float(args.learning_rate),
+            weight_decay=float(args.weight_decay),
+            patience=int(args.patience),
+            num_workers=int(args.num_workers),
+            seed=int(args.seed),
         )
     )
     print(json.dumps(metrics, indent=2))

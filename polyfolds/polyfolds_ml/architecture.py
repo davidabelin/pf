@@ -63,23 +63,24 @@ def default_classifier_spec() -> PolyfoldsModelSpec:
     """Return the default planned classifier architecture spec."""
 
     return PolyfoldsModelSpec(
-        name="polyfolds_cnn_classifier_v0",
-        objective="classify valid vs invalid vs incomplete",
+        name="polyfolds_cnn_classifier_v1",
+        objective="joint solid-plus-state classification over canonical vector-derived renders",
         raster_encoder=EncoderSpec(
             input_size=192,
             stages=(
-                ConvStage(channels=24, kernel_size=7, dropout=0.05),
-                ConvStage(channels=48, kernel_size=5, dropout=0.08),
-                ConvStage(channels=96, kernel_size=3, dropout=0.1),
+                ConvStage(channels=32, kernel_size=3, dropout=0.0),
+                ConvStage(channels=64, kernel_size=3, dropout=0.0),
+                ConvStage(channels=128, kernel_size=3, dropout=0.0),
+                ConvStage(channels=256, kernel_size=3, dropout=0.0),
             ),
-            projection_dim=192,
+            projection_dim=256,
         ),
         vector_encoder_dim=64,
-        classifier_head=HeadSpec(hidden_dims=(192, 96), output_dim=3, dropout=0.15),
+        classifier_head=HeadSpec(hidden_dims=(256, 128), output_dim=15, dropout=0.15),
         notes=(
-            "Start with raster input, but preserve vector hooks from day one.",
-            "Edge-group colors should stay aligned between raster and vector representations.",
-            "This spec is meant for later PyTorch implementation, not current execution.",
+            "Raster input is rendered on demand from canonical vector geometry.",
+            "The first label space is solid plus state, not state-only classification.",
+            "Semantic color mapping remains deferred; the canonical render profile is neutral for now.",
         ),
     )
 
@@ -104,6 +105,6 @@ def default_repair_spec() -> PolyfoldsModelSpec:
         repair_head=HeadSpec(hidden_dims=(256, 128), output_dim=64, dropout=0.15),
         notes=(
             "Repair should target structured vector edits or SVG-like output, not only raster pixels.",
-            "A critic can score rendered repairs later, but the generator should stay geometry-aware.",
+            "A critic can score rendered repairs later, but only after supervised vector reconstruction is stable.",
         ),
     )

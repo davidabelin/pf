@@ -6,7 +6,13 @@ venv/
 *.pyo
 *.db
 *.sqlite*
+/data/*
+/models/*
 /polyfolds/dataset_dodeca
 /polyfolds/dataset_hexa
 /polyfolds/dataset_icosa
 /polyfolds/dataset_octa
+/data/canonical_core/
+/models/*.pt
+/models/*.pth
+/models/*.json
