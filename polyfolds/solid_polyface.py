@@ -24,6 +24,10 @@ import random
 from dataclasses import dataclass
 from typing import Any, Iterable, List, Sequence
 
+from bootstrap_paths import ensure_polyfolds_paths
+
+ensure_polyfolds_paths()
+
 from platonic_nets import Net2D, NetFace2D, net_to_json, render_net_png, unfold_random_net, unfold_random_net_with_collision
 from solid_common import DatasetDefaults, NetsDefaults, add_dataset_args, add_nets_args, apply_test_scale
 

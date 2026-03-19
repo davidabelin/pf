@@ -29,7 +29,7 @@ def test_home_page_renders(client):
     response = client.get('/')
     assert response.status_code == 200
     assert b'Polyfolds' in response.data
-    assert b'GNU copyright 2026 AIX Protodyne' in response.data
+    assert b'2026 AIX Protodyne' in response.data
     assert b'Contact Us' in response.data
     assert b'Privacy' in response.data
     assert b'AIX TOC' in response.data

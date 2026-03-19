@@ -1,6 +1,12 @@
 """Polyfolds ML scaffolding for manifests and the shared CNN classifier."""
 
-from polyfolds_ml.architecture import PolyfoldsModelSpec, default_classifier_spec, default_repair_spec
+from polyfolds_ml.architecture import (
+    PolyfoldsModelSpec,
+    TrainingSpec,
+    default_classifier_spec,
+    default_classifier_training_spec,
+    default_repair_spec,
+)
 from polyfolds_ml.manifest import build_manifest, load_manifest_rows, summarize_manifest
 from polyfolds_ml.schema import DatasetManifest, PolyfoldSample
 from polyfolds_ml.training import ClassifierTrainConfig, train_classifier_baseline
@@ -10,8 +16,10 @@ __all__ = [
     "DatasetManifest",
     "PolyfoldSample",
     "PolyfoldsModelSpec",
+    "TrainingSpec",
     "build_manifest",
     "default_classifier_spec",
+    "default_classifier_training_spec",
     "default_repair_spec",
     "load_manifest_rows",
     "summarize_manifest",

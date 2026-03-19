@@ -1,11 +1,9 @@
-"""Architecture descriptors for Polyfolds classification and repair models.
+"""Architecture and training descriptors for Polyfolds models.
 
 Role
 ----
-Define the intended model-design vocabulary for Polyfolds before the heavier
-training implementation is finalized. These specs document the future shape of
-the classifier and repair models without coupling the current codebase to one
-runtime framework yet.
+Document the agreed classifier and repair-model shapes alongside the default
+training regimen used by the canonical Polyfolds workflow.
 """
 
 from __future__ import annotations
@@ -39,6 +37,40 @@ class HeadSpec:
     hidden_dims: tuple[int, ...]
     output_dim: int
     dropout: float = 0.0
+
+
+@dataclass(frozen=True, slots=True)
+class AffineAugmentationSpec:
+    """Declarative description of the raster affine augmentation budget."""
+
+    rotation_degrees: float
+    scale_min: float
+    scale_max: float
+    translate_fraction: float
+
+
+@dataclass(frozen=True, slots=True)
+class TrainingSpec:
+    """Default training regimen for one Polyfolds model objective."""
+
+    batch_size: int
+    epochs: int
+    learning_rate: float
+    weight_decay: float
+    patience: int
+    optimizer: str
+    balanced_sampling: str
+    loss: str
+    split_policy: str
+    augmentation: AffineAugmentationSpec
+    num_workers: int = 0
+    seed: int = 42
+    notes: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict:
+        """Serialize the declarative training spec into a JSON-ready dictionary."""
+
+        return asdict(self)
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +113,32 @@ def default_classifier_spec() -> PolyfoldsModelSpec:
             "Raster input is rendered on demand from canonical vector geometry.",
             "The first label space is solid plus state, not state-only classification.",
             "Semantic color mapping remains deferred; the canonical render profile is neutral for now.",
+        ),
+    )
+
+
+def default_classifier_training_spec() -> TrainingSpec:
+    """Return the default training regimen for the shared classifier."""
+
+    return TrainingSpec(
+        batch_size=16,
+        epochs=12,
+        learning_rate=3e-4,
+        weight_decay=1e-4,
+        patience=4,
+        optimizer="AdamW",
+        balanced_sampling="joint_label_weighted_random",
+        loss="cross_entropy",
+        split_policy="topology_hash family split with leakage check",
+        augmentation=AffineAugmentationSpec(
+            rotation_degrees=12.0,
+            scale_min=0.92,
+            scale_max=1.08,
+            translate_fraction=0.08,
+        ),
+        notes=(
+            "Balanced sampling equalizes the 15 solid-plus-state labels during training epochs.",
+            "If balanced sampling is disabled, inverse-frequency class weighting is used instead.",
         ),
     )
 

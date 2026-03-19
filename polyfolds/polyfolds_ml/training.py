@@ -12,7 +12,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional as F
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 
 from vector_render import render_faces_array
 
@@ -29,6 +29,11 @@ class ClassifierTrainConfig:
     patience: int = 4
     num_workers: int = 0
     seed: int = 42
+    balanced_sampling: bool = True
+    affine_degrees: float = 12.0
+    affine_scale_min: float = 0.92
+    affine_scale_max: float = 1.08
+    affine_translate: float = 0.08
 
 
 def _label_for_row(row: dict[str, Any]) -> str:
@@ -86,11 +91,26 @@ def _macro_f1(matrix: np.ndarray) -> float:
 
 
 class VectorManifestDataset(Dataset):
-    def __init__(self, rows: list[dict[str, Any]], *, label_to_index: dict[str, int], image_size: int, augment: bool) -> None:
+    def __init__(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        label_to_index: dict[str, int],
+        image_size: int,
+        augment: bool,
+        affine_degrees: float = 12.0,
+        affine_scale_min: float = 0.92,
+        affine_scale_max: float = 1.08,
+        affine_translate: float = 0.08,
+    ) -> None:
         self.rows = list(rows)
         self.label_to_index = dict(label_to_index)
         self.image_size = int(image_size)
         self.augment = bool(augment)
+        self.affine_degrees = float(affine_degrees)
+        self.affine_scale_min = float(affine_scale_min)
+        self.affine_scale_max = float(affine_scale_max)
+        self.affine_translate = float(affine_translate)
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -104,16 +124,29 @@ class VectorManifestDataset(Dataset):
         )
         tensor = torch.from_numpy(array).float()
         if self.augment:
-            tensor = _apply_affine_augmentation(tensor)
+            tensor = _apply_affine_augmentation(
+                tensor,
+                degrees=self.affine_degrees,
+                scale_min=self.affine_scale_min,
+                scale_max=self.affine_scale_max,
+                translate=self.affine_translate,
+            )
         label = self.label_to_index[_label_for_row(row)]
         return tensor, torch.tensor(label, dtype=torch.long)
 
 
-def _apply_affine_augmentation(image: torch.Tensor) -> torch.Tensor:
-    theta_deg = float(torch.empty(1).uniform_(-12.0, 12.0).item())
-    scale = float(torch.empty(1).uniform_(0.92, 1.08).item())
-    tx = float(torch.empty(1).uniform_(-0.08, 0.08).item())
-    ty = float(torch.empty(1).uniform_(-0.08, 0.08).item())
+def _apply_affine_augmentation(
+    image: torch.Tensor,
+    *,
+    degrees: float,
+    scale_min: float,
+    scale_max: float,
+    translate: float,
+) -> torch.Tensor:
+    theta_deg = float(torch.empty(1).uniform_(-float(degrees), float(degrees)).item())
+    scale = float(torch.empty(1).uniform_(float(scale_min), float(scale_max)).item())
+    tx = float(torch.empty(1).uniform_(-float(translate), float(translate)).item())
+    ty = float(torch.empty(1).uniform_(-float(translate), float(translate)).item())
     radians = np.deg2rad(theta_deg)
     cos_v = float(np.cos(radians) * scale)
     sin_v = float(np.sin(radians) * scale)
@@ -121,6 +154,38 @@ def _apply_affine_augmentation(image: torch.Tensor) -> torch.Tensor:
     grid = F.affine_grid(theta, size=(1, image.shape[0], image.shape[1], image.shape[2]), align_corners=False)
     out = F.grid_sample(image.unsqueeze(0), grid, mode="bilinear", padding_mode="border", align_corners=False)
     return out[0]
+
+
+def _topology_family_keys(rows: list[dict[str, Any]]) -> set[str]:
+    keys: set[str] = set()
+    for row in rows:
+        solid = str(row.get("solid") or "unknown")
+        topology_hash = row.get("topology_hash")
+        if topology_hash:
+            keys.add(f"{solid}:{topology_hash}")
+    return keys
+
+
+def _ensure_no_topology_leakage(train_rows: list[dict[str, Any]], val_rows: list[dict[str, Any]], test_rows: list[dict[str, Any]]) -> None:
+    train_keys = _topology_family_keys(train_rows)
+    val_keys = _topology_family_keys(val_rows)
+    test_keys = _topology_family_keys(test_rows)
+    overlap = {
+        "train_val": sorted(train_keys & val_keys),
+        "train_test": sorted(train_keys & test_keys),
+        "val_test": sorted(val_keys & test_keys),
+    }
+    leaking = {name: values for name, values in overlap.items() if values}
+    if leaking:
+        raise RuntimeError(f"Topology family leakage detected across splits: {leaking}")
+
+
+def _build_train_sampler(rows: list[dict[str, Any]], *, seed: int) -> WeightedRandomSampler:
+    label_counter = Counter(_label_for_row(row) for row in rows)
+    weights = torch.tensor([1.0 / max(1, label_counter[_label_for_row(row)]) for row in rows], dtype=torch.double)
+    generator = torch.Generator()
+    generator.manual_seed(int(seed))
+    return WeightedRandomSampler(weights=weights, num_samples=len(rows), replacement=True, generator=generator)
 
 
 class PolyfoldsCNN(nn.Module):
@@ -202,12 +267,29 @@ def train_classifier_baseline(config: ClassifierTrainConfig) -> dict[str, Any]:
     labels = sorted({_label_for_row(row) for row in rows})
     label_to_index = {label: index for index, label in enumerate(labels)}
     train_rows, val_rows, test_rows = _ensure_non_empty_splits(rows)
+    _ensure_no_topology_leakage(train_rows, val_rows, test_rows)
 
-    train_ds = VectorManifestDataset(train_rows, label_to_index=label_to_index, image_size=int(config.image_size), augment=True)
+    train_ds = VectorManifestDataset(
+        train_rows,
+        label_to_index=label_to_index,
+        image_size=int(config.image_size),
+        augment=True,
+        affine_degrees=float(config.affine_degrees),
+        affine_scale_min=float(config.affine_scale_min),
+        affine_scale_max=float(config.affine_scale_max),
+        affine_translate=float(config.affine_translate),
+    )
     val_ds = VectorManifestDataset(val_rows, label_to_index=label_to_index, image_size=int(config.image_size), augment=False)
     test_ds = VectorManifestDataset(test_rows, label_to_index=label_to_index, image_size=int(config.image_size), augment=False)
 
-    train_loader = DataLoader(train_ds, batch_size=int(config.batch_size), shuffle=True, num_workers=int(config.num_workers))
+    train_sampler = _build_train_sampler(train_rows, seed=int(config.seed)) if config.balanced_sampling else None
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=int(config.batch_size),
+        shuffle=train_sampler is None,
+        sampler=train_sampler,
+        num_workers=int(config.num_workers),
+    )
     val_loader = DataLoader(val_ds, batch_size=int(config.batch_size), shuffle=False, num_workers=int(config.num_workers))
     test_loader = DataLoader(test_ds, batch_size=int(config.batch_size), shuffle=False, num_workers=int(config.num_workers))
 
@@ -218,11 +300,13 @@ def train_classifier_baseline(config: ClassifierTrainConfig) -> dict[str, Any]:
     checkpoint_path = artifact_path.with_suffix(artifact_path.suffix + ".best.tmp")
 
     train_counter = Counter(_label_for_row(row) for row in train_rows)
-    class_weights = torch.tensor(
-        [len(train_rows) / max(1, train_counter[label]) for label in labels],
-        dtype=torch.float32,
-        device=device,
-    )
+    class_weights = None
+    if not config.balanced_sampling:
+        class_weights = torch.tensor(
+            [len(train_rows) / max(1, train_counter[label]) for label in labels],
+            dtype=torch.float32,
+            device=device,
+        )
     criterion = nn.CrossEntropyLoss(weight=class_weights)
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(config.learning_rate), weight_decay=float(config.weight_decay))
 
@@ -293,6 +377,8 @@ def train_classifier_baseline(config: ClassifierTrainConfig) -> dict[str, Any]:
         "labels": labels,
         "artifact_path": str(artifact_path.resolve()),
         "device": str(device),
+        "balanced_sampling": bool(config.balanced_sampling),
+        "train_label_counts": dict(sorted(train_counter.items())),
         "history": history,
         "test_confusion_matrix": test_metrics["confusion_matrix"],
     }

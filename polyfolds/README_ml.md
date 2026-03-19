@@ -19,6 +19,8 @@ That is a better fit for Polyfolds than treating everything as pixels forever.
   - deterministic valid/incomplete/invalid family generation around stable topology hashes
 - `vector_render.py`
   - neutral SVG/PNG rendering shared by canonical generation and training
+- `dataset_report.py`
+  - dataset QA, contract summary, and exemplar contact-sheet generation
 - `polyfolds_ml/schema.py`
   - defines the manifest/sample schema
 - `polyfolds_ml/manifest.py`
@@ -29,12 +31,16 @@ That is a better fit for Polyfolds than treating everything as pixels forever.
   - trains the shared PyTorch CNN classifier from manifest data
 - `build_polyfolds_manifest.py`
   - CLI to build a unified manifest
+- `report_polyfolds_dataset.py`
+  - CLI to summarize a dataset root or manifest and emit exemplar previews
+- `show_polyfolds_model_spec.py`
+  - CLI to print the current classifier and repair specs
 - `train_polyfolds_classifier.py`
   - CLI to train the shared solid-plus-state classifier
 
 ## Current Limits
 
-- final semantic color mapping is still deferred
+- the current palette is fixed for `neutral_v1`, but future semantic recoloring is still allowed through render roles
 - repair targets are present in v1 form but the vector repair model is not implemented yet
 - hard solids (`dodeca`, `icosa`) start from deterministic sampled valid topologies before any full expansion
 - the repair model is represented as a planned architecture, not implemented
@@ -49,8 +55,16 @@ That is a better fit for Polyfolds than treating everything as pixels forever.
 
    `python build_polyfolds_manifest.py --dataset ..\\data\\canonical_core --output ..\\data\\canonical_core\\manifest.json`
 
-3. Train the shared classifier:
+3. Report the dataset and generate exemplar previews:
+
+   `python report_polyfolds_dataset.py ..\\data\\canonical_core --output-json ..\\data\\canonical_core\\report.json --output-md ..\\data\\canonical_core\\report.md --contact-sheet ..\\data\\canonical_core\\exemplars.png`
+
+4. Print the current classifier spec:
+
+   `python show_polyfolds_model_spec.py --which classifier`
+
+5. Train the shared classifier:
 
    `python train_polyfolds_classifier.py --manifest ..\\data\\canonical_core\\manifest.json --artifact ..\\models\\polyfolds_cnn_classifier.pt`
 
-The checked-out `dataset_*` folders remain legacy reference assets only.
+The checked-out folders under `legacy/dataset_*` remain legacy reference assets only.

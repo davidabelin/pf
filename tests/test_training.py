@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import pytest
 
 from polyfolds_ml.training import ClassifierTrainConfig, train_classifier_baseline
 
@@ -33,7 +34,7 @@ def test_torch_training_smoke(tmp_path: Path):
                         "source_dataset": "synthetic_smoke",
                         "state": state,
                         "joint_label": f"{solid}:{state}",
-                        "topology_hash": f"{solid}_{state}",
+                        "topology_hash": f"{solid}_{state}_{split}",
                         "vector_json_path": None,
                         "canonical_svg_path": None,
                         "render_profile_id": "neutral_v1",
@@ -89,3 +90,73 @@ def test_torch_training_smoke(tmp_path: Path):
     assert metrics["sample_count"] == len(samples)
     assert len(metrics["labels"]) == 15
     assert metrics["artifact_path"].endswith("classifier.pt")
+    assert metrics["balanced_sampling"] is True
+
+
+def test_training_rejects_topology_leakage(tmp_path: Path):
+    samples = []
+    for index in range(6):
+        for split in ("train", "val"):
+            samples.append(
+                {
+                    "sample_id": f"hexa_valid_{split}_{index}",
+                    "split": split,
+                    "class_label": "valid",
+                    "solid": "hexa",
+                    "source_dataset": "synthetic_smoke",
+                    "state": "valid",
+                    "joint_label": "hexa:valid",
+                    "topology_hash": f"shared_family_{index}",
+                    "vector_json_path": None,
+                    "canonical_svg_path": None,
+                    "render_profile_id": "neutral_v1",
+                    "source_kind": "canonical",
+                    "vector_faces": [
+                        {
+                            "face_index": 0,
+                            "polygon": _square(float(index) * 0.1),
+                            "present": True,
+                            "edge_group": None,
+                        }
+                    ],
+                    "vector_edges": [],
+                    "repair_target": None,
+                    "metadata": {"generation_mode": "sampled"},
+                    "schema_version": 2,
+                }
+            )
+
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "manifest": {
+                    "dataset_name": "synthetic_leak",
+                    "schema_version": 2,
+                    "created_at": "2026-03-19T00:00:00+00:00",
+                    "source_roots": [str(tmp_path)],
+                    "classes": ["hexa:valid"],
+                    "solids": ["hexa"],
+                    "sample_count": len(samples),
+                    "dataset_kind": "canonical",
+                    "coverage_kind": "sampled",
+                    "label_space_version": "solid_state_v1",
+                    "notes": [],
+                },
+                "samples": samples,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="Topology family leakage"):
+        train_classifier_baseline(
+            ClassifierTrainConfig(
+                manifest_path=str(manifest_path),
+                artifact_path=str(tmp_path / "classifier.pt"),
+                image_size=96,
+                batch_size=2,
+                epochs=1,
+                patience=1,
+            )
+        )

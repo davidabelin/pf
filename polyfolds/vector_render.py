@@ -12,13 +12,35 @@ from PIL import Image, ImageDraw
 
 
 NEUTRAL_RENDER_PROFILE_ID = "neutral_v1"
+NEUTRAL_RENDER_PALETTE = {
+    "background": "#ffffff",
+    "face_fill": "#dbe0e7",
+    "face_outline": "#182028",
+    "completion_outline": "#707c8a",
+    "shared_edge": "#6e7680",
+    "cut_edge": "#182028",
+}
 
-_BACKGROUND = (255, 255, 255)
-_FACE_FILL = (219, 224, 231)
-_FACE_OUTLINE = (24, 32, 40)
-_MISSING_OUTLINE = (112, 124, 138)
-_SHARED_EDGE = (110, 118, 128)
-_CUT_EDGE = (24, 32, 40)
+
+def _rgb_from_hex(value: str) -> tuple[int, int, int]:
+    text = str(value).strip().removeprefix("#")
+    if len(text) != 6:
+        raise ValueError(f"Expected 6 hex digits, got {value!r}.")
+    return (int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16))
+
+
+def neutral_render_palette() -> dict[str, str]:
+    """Return the canonical neutral render palette for Polyfolds assets."""
+
+    return dict(NEUTRAL_RENDER_PALETTE)
+
+
+_BACKGROUND = _rgb_from_hex(NEUTRAL_RENDER_PALETTE["background"])
+_FACE_FILL = _rgb_from_hex(NEUTRAL_RENDER_PALETTE["face_fill"])
+_FACE_OUTLINE = _rgb_from_hex(NEUTRAL_RENDER_PALETTE["face_outline"])
+_MISSING_OUTLINE = _rgb_from_hex(NEUTRAL_RENDER_PALETTE["completion_outline"])
+_SHARED_EDGE = _rgb_from_hex(NEUTRAL_RENDER_PALETTE["shared_edge"])
+_CUT_EDGE = _rgb_from_hex(NEUTRAL_RENDER_PALETTE["cut_edge"])
 
 
 def _get_value(item: Any, key: str, default: Any = None) -> Any:

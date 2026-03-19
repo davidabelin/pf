@@ -12,6 +12,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from bootstrap_paths import ensure_polyfolds_paths
+
+ensure_polyfolds_paths()
+
 from platonic_nets import Net2D, NetFace2D, net_to_json, unfold_random_net
 from solid_dodeca import SPEC as DODECA_SPEC
 from solid_hexa import _NETS_SPEC as HEXA_SPEC
@@ -26,7 +30,7 @@ from solid_polyface import (
     _net_has_overlap,
 )
 from solid_tetra import SPEC as TETRA_SPEC
-from vector_render import NEUTRAL_RENDER_PROFILE_ID, save_faces_png, write_faces_svg
+from vector_render import NEUTRAL_RENDER_PROFILE_ID, neutral_render_palette, save_faces_png, write_faces_svg
 
 from polyfolds_ml.schema import DatasetManifest, PolyfoldSample, RasterAsset, RepairTarget, VectorEdge, VectorFace
 
@@ -157,6 +161,7 @@ def _write_vector_payload(
         "topology_hash": topology_hash,
         "render_profile_id": NEUTRAL_RENDER_PROFILE_ID,
         "render_roles": _render_roles(),
+        "render_palette": neutral_render_palette(),
         "net": net_to_json(net),
         "completion_faces": [
             {"face_index": int(face.face_index), "vertex_ids": list(face.vertex_ids), "xy": [list(point) for point in face.xy]}
@@ -249,6 +254,7 @@ def _sample_from_net(
             "faces_total": int(faces_total),
             "faces_present": int(len(net.faces)),
             "render_roles": _render_roles(),
+            "render_palette": neutral_render_palette(),
             "edit_recipe": edit_recipe,
             "full_valid_count": int(full_valid_count),
             "valid_target_sample_id": valid_target_sample_id,

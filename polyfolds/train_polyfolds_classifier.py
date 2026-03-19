@@ -23,6 +23,11 @@ def main() -> int:
     parser.add_argument("--patience", type=int, default=4)
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--unbalanced", action="store_true", help="Disable balanced joint-label sampling for training.")
+    parser.add_argument("--affine-degrees", type=float, default=12.0, help="Max absolute rotation for affine augmentation.")
+    parser.add_argument("--affine-scale-min", type=float, default=0.92, help="Minimum affine scale factor.")
+    parser.add_argument("--affine-scale-max", type=float, default=1.08, help="Maximum affine scale factor.")
+    parser.add_argument("--affine-translate", type=float, default=0.08, help="Max fractional translation for affine augmentation.")
     args = parser.parse_args()
 
     metrics = train_classifier_baseline(
@@ -37,6 +42,11 @@ def main() -> int:
             patience=int(args.patience),
             num_workers=int(args.num_workers),
             seed=int(args.seed),
+            balanced_sampling=not bool(args.unbalanced),
+            affine_degrees=float(args.affine_degrees),
+            affine_scale_min=float(args.affine_scale_min),
+            affine_scale_max=float(args.affine_scale_max),
+            affine_translate=float(args.affine_translate),
         )
     )
     print(json.dumps(metrics, indent=2))
