@@ -8,12 +8,8 @@ venv/
 *.sqlite*
 /data/*
 /models/*
-/polyfolds/legacy/*
-/polyfolds/legacy/dataset_dodeca/*
-/polyfolds/legacy/dataset_hexa/*
-/polyfolds/legacy/dataset_icosa/*
-/polyfolds/legacy/dataset_octa/*
-/polyfolds/legacy/dataset_tetra/*
+/polyfolds/legacy/
+polyfolds/legacy/dataset_*/
 /data/canonical_core/
 /models/*.pt
 /models/*.pth
