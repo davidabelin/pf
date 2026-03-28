@@ -19,6 +19,8 @@ SOLID_ORDER = ("tetra", "hexa", "octa", "dodeca", "icosa")
 
 
 def _load_manifest_like(input_path: str | Path) -> tuple[Path, dict[str, Any]]:
+    """Load a manifest payload from either a dataset root or manifest file."""
+
     path = Path(input_path).resolve()
     if path.is_dir():
         return path, build_manifest([path], dataset_name=path.name)
@@ -34,6 +36,8 @@ def _load_manifest_like(input_path: str | Path) -> tuple[Path, dict[str, Any]]:
 
 
 def _ordered_solids(rows: list[dict[str, Any]]) -> list[str]:
+    """Return solids in canonical display order with unknowns appended."""
+
     present = {str(row.get("solid", "unknown")) for row in rows}
     ordered = [solid for solid in SOLID_ORDER if solid in present]
     ordered.extend(sorted(present.difference(ordered)))
@@ -41,6 +45,8 @@ def _ordered_solids(rows: list[dict[str, Any]]) -> list[str]:
 
 
 def _ordered_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Sort samples into a stable solid, state, and topology presentation order."""
+
     return sorted(
         rows,
         key=lambda row: (
@@ -55,10 +61,14 @@ def _ordered_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _path_exists(value: str | None) -> bool:
+    """Return ``True`` when the provided asset path exists on disk."""
+
     return bool(value) and Path(str(value)).exists()
 
 
 def _balance_repeat_factors(counter: Counter[str]) -> dict[str, float]:
+    """Compute repeat factors needed to rebalance each observed label count."""
+
     if not counter:
         return {}
     target = max(counter.values())
@@ -66,6 +76,8 @@ def _balance_repeat_factors(counter: Counter[str]) -> dict[str, float]:
 
 
 def _family_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarize topology-family coverage, split leaks, and duplicates."""
+
     states_by_family: dict[str, set[str]] = defaultdict(set)
     split_by_family: dict[str, set[str]] = defaultdict(set)
     duplicates: Counter[str] = Counter()
@@ -95,6 +107,8 @@ def _family_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _asset_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Collect missing canonical asset paths and repair metadata gaps."""
+
     vector_json_missing: list[str] = []
     canonical_svg_missing: list[str] = []
     repair_svg_missing: list[str] = []
@@ -125,6 +139,8 @@ def _asset_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _coverage_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarize valid-topology coverage and full-count metadata by solid."""
+
     summary: dict[str, dict[str, Any]] = {}
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
@@ -144,6 +160,8 @@ def _coverage_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _dataset_contract() -> dict[str, Any]:
+    """Describe the expected on-disk and manifest contract for the dataset."""
+
     return {
         "canonical_root_files": (
             "samples.jsonl",
@@ -176,6 +194,8 @@ def _dataset_contract() -> dict[str, Any]:
 
 
 def _select_exemplars(rows: list[dict[str, Any]], *, per_label: int) -> list[dict[str, Any]]:
+    """Select a deterministic exemplar slice for contact-sheet rendering."""
+
     ordered_rows = _ordered_rows(rows)
     selected: list[dict[str, Any]] = []
     for solid in _ordered_solids(ordered_rows):
@@ -233,6 +253,8 @@ def write_exemplar_contact_sheet(
 
 
 def _markdown_report(input_path: Path, report: dict[str, Any], *, contact_sheet_path: str | None) -> str:
+    """Render one human-readable Markdown summary for a dataset report."""
+
     lines = [
         f"# Polyfolds Dataset Report: `{input_path}`",
         "",
@@ -353,6 +375,8 @@ def build_dataset_report(
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the dataset-report CLI and print the JSON summary."""
+
     parser = argparse.ArgumentParser(description="Summarize a Polyfolds dataset root or manifest and optionally emit exemplar previews.")
     parser.add_argument("input", help="Dataset root, dataset_manifest.json path, or manifest.json path.")
     parser.add_argument("--output-json", help="Optional JSON report path.")

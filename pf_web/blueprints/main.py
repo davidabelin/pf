@@ -1,3 +1,5 @@
+"""Page and health routes for the standalone Polyfolds shell."""
+
 from __future__ import annotations
 
 from flask import Blueprint, current_app, jsonify, render_template
@@ -8,6 +10,8 @@ main_bp = Blueprint('main', __name__)
 
 @main_bp.get('/')
 def home() -> str:
+    """Render the Polyfolds landing page."""
+
     return render_template(
         'pages/home.html',
         title='Polyfolds',
@@ -18,6 +22,8 @@ def home() -> str:
 
 @main_bp.get('/healthz')
 def healthz():
+    """Return a lightweight health payload for uptime checks."""
+
     return jsonify(
         {
             'status': 'ok',
